@@ -154,4 +154,3 @@ func (list *SkipListInt) randomLevel() int {
 	}
 	return i
 }
-
