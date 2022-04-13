@@ -16,34 +16,6 @@ type BPNode struct {
 	Next 	*BPNode
 }
 
-func (node *BPNode) deleteItem(key int64) bool {
-	num := len(node.Items)
-	for i:=0; i < num; i++ {
-		if node.Items[i].Key > key {
-			return false
-		} else if node.Items[i].Key == key {
-			copy(node.Items[i:], node.Items[i+1:])
-			node.Items = node.Items[0:len(node.Items)-1]
-			node.MaxKey = node.Items[len(node.Items)-1].Key
-			return true
-		}
-	}
-	return false
-}
-
-func (node *BPNode) deleteChild(child *BPNode) bool {
-	num := len(node.Nodes)
-	for i:=0; i < num; i++ {
-		if node.Nodes[i] == child {
-			copy(node.Nodes[i:], node.Nodes[i+1:])
-			node.Nodes = node.Nodes[0:len(node.Nodes)-1]
-			node.MaxKey = node.Nodes[len(node.Nodes)-1].MaxKey
-			return true
-		}
-	}
-	return false
-}
-
 func (node *BPNode) findItem(key int64) int {
 	num := len(node.Items)
 	for i:=0; i < num; i++ {
@@ -110,6 +82,34 @@ func (node *BPNode) addChild(child *BPNode) {
 	}
 }
 
+func (node *BPNode) deleteItem(key int64) bool {
+	num := len(node.Items)
+	for i:=0; i < num; i++ {
+		if node.Items[i].Key > key {
+			return false
+		} else if node.Items[i].Key == key {
+			copy(node.Items[i:], node.Items[i+1:])
+			node.Items = node.Items[0:len(node.Items)-1]
+			node.MaxKey = node.Items[len(node.Items)-1].Key
+			return true
+		}
+	}
+	return false
+}
+
+func (node *BPNode) deleteChild(child *BPNode) bool {
+	num := len(node.Nodes)
+	for i:=0; i < num; i++ {
+		if node.Nodes[i] == child {
+			copy(node.Nodes[i:], node.Nodes[i+1:])
+			node.Nodes = node.Nodes[0:len(node.Nodes)-1]
+			node.MaxKey = node.Nodes[len(node.Nodes)-1].MaxKey
+			return true
+		}
+	}
+	return false
+}
+
 type BPTree struct {
 	mutex  	sync.RWMutex
 	ktype 	int
@@ -126,7 +126,6 @@ func NewBPTree(width int) *BPTree {
 	var bt = &BPTree{}
 	bt.root = NewLeafNode(width)
 	bt.width = width
-	//bt.halfw = bt.width / 2
 	bt.halfw = (bt.width + 1) / 2
 	return bt
 }
@@ -148,6 +147,9 @@ func NewIndexNode(width int) *BPNode {
 }
 
 func (t *BPTree) Get(key int64) interface{} {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
 	node := t.root
 	for i := 0; i < len(node.Nodes); i++ {
 		if key <= node.Nodes[i].MaxKey {
@@ -188,6 +190,9 @@ func (t *BPTree) getData(node *BPNode) map[int64]interface{} {
 }
 
 func (t *BPTree) GetData() map[int64]interface{} {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
+
 	return t.getData(t.root)
 }
 
@@ -250,6 +255,8 @@ func (t *BPTree) setValue(parent *BPNode, node *BPNode, key int64, value interfa
 }
 
 func (t *BPTree) Set(key int64, value interface{}) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	t.setValue(nil, t.root, key, value)
 }
 
@@ -286,6 +293,7 @@ func (t *BPTree) itemMoveOrMerge(parent *BPNode, node *BPNode) {
 		return
 	}
 
+	//与左侧结点进行合并
 	if node1 != nil && len(node1.Items) + len(node.Items) <= t.width {
 		node1.Items = append(node1.Items, node.Items...)
 		node1.Next = node.Next
@@ -294,6 +302,7 @@ func (t *BPTree) itemMoveOrMerge(parent *BPNode, node *BPNode) {
 		return
 	}
 
+	//与右侧结点进行合并
 	if node2 != nil && len(node2.Items) + len(node.Items) <= t.width {
 		node.Items = append(node.Items, node2.Items...)
 		node.Next = node2.Next
@@ -375,5 +384,7 @@ func (t *BPTree) deleteItem(parent *BPNode, node *BPNode, key int64) {
 }
 
 func (t *BPTree) Remove(key int64) {
+	t.mutex.Lock()
+	defer t.mutex.Unlock()
 	t.deleteItem(nil, t.root, key)
 }
