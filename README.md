@@ -1,5 +1,5 @@
 ## gods
-Go语言实现的数据结构，包括：SkipList、B+树。
+Go语言实现的数据结构，包括：SkipList、B+树、BitMap、布隆过滤器。
 
 ## 代码下载
 go get github.com/haming123/gods

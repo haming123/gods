@@ -9,6 +9,11 @@ type BPItem struct {
 	Val 	interface{}
 }
 
+type StringKV struct {
+	Key 	string
+	Val 	interface{}
+}
+
 type BPNode struct {
 	MaxKey	int64
 	Nodes 	[]*BPNode
