@@ -28,48 +28,7 @@ func NewRaxNode() *RaxNode {
 	return nd
 }
 
-func (this *RaxNode)pathCompare(data []byte, bbeg int) (bool, int) {
-	bend := bbeg + int(this.bit_len)
-	if bend > len(data) * 8 {
-		return false, len(data) * 8
-	}
-
-	//起始和终止字节的位置
-	cbeg := bbeg / 8; cend := bend / 8
-	//起始和终止字节的偏移量
-	obeg := bbeg % 8; oend := bend % 8
-	for bb := bbeg; bb < bend; {
-		//获取两个数组的当前字节位置
-		dci := bb / 8
-		nci := dci - cbeg
-
-		//获取数据的当前字节以及循环步长
-		step := 8
-		byte_data := data[dci]
-		if dci == cbeg && obeg > 0 {
-			//清零不完整字节的低位
-			byte_data = CLEAR_BITS_LOW(byte_data, obeg)
-			step -= obeg
-		}
-		if dci == cend && oend > 0 {
-			//清零不完整字节的高位
-			byte_data = CLEAR_BITS_HIGH(byte_data, 8-oend)
-			step -= 8-oend
-		}
-
-		//获取结点的当前字节，并与数据的当前字节比较
-		byte_node := this.bit_val[nci]
-		if byte_data != byte_node {
-			return false, len(data)*8
-		}
-
-		bb += step
-	}
-
-	return true, bend
-}
-
-func (this *RaxNode)pathSplit(key []byte, key_pos int, val interface{}) int {
+func (this *RaxNode)pathSplit(key []byte, key_pos int, val interface{}) (int, *RaxNode) {
 	//与path对应的key数据(去掉已经处理的公共字节)
 	data := key[key_pos/8:]
 	//key以bit为单位长度（包含开始字节的字节内bit位的偏移量）
@@ -136,9 +95,9 @@ func (this *RaxNode)pathSplit(key []byte, key_pos int, val interface{}) int {
 		bval_data = GET_BIT(byte_data, bit_offset)
 		if bit_last_path == 0 {
 			if bval_data == 0 && this.left != nil {
-				return key_pos + int(this.bit_len)
+				return key_pos + int(this.bit_len), this.left
 			} else if bval_data == 1 && this.right != nil {
-				return key_pos + int(this.bit_len)
+				return key_pos + int(this.bit_len), this.right
 			}
 		}
 
@@ -219,7 +178,7 @@ func (this *RaxNode)pathSplit(key []byte, key_pos int, val interface{}) int {
 			this.right = nd_path
 		}
 	}
-	return len(key) * 8
+	return len(key) * 8, nil
 }
 
 //添加元素
@@ -248,21 +207,77 @@ func (this *Radix)Set(key string, val interface{}) {
 	cur := root
 	blen := len(data) * 8
 	for bpos := 0; bpos < blen && cur != nil; {
-		bpos = cur.pathSplit(data, bpos, val)
-		if bpos >= blen {
-			return
+		bpos, cur = cur.pathSplit(data, bpos, val)
+	}
+}
+
+func (this *RaxNode)pathCompare(data []byte, bbeg int) (bool, int) {
+	bend := bbeg + int(this.bit_len)
+	if bend > len(data) * 8 {
+		return false, len(data) * 8
+	}
+
+	//起始和终止字节的位置
+	cbeg := bbeg / 8; cend := bend / 8
+	//起始和终止字节的偏移量
+	obeg := bbeg % 8; oend := bend % 8
+	for bb := bbeg; bb < bend; {
+		//获取两个数组的当前字节位置
+		dci := bb / 8
+		nci := dci - cbeg
+
+		//获取数据的当前字节以及循环步长
+		step := 8
+		byte_data := data[dci]
+		if dci == cbeg && obeg > 0 {
+			//清零不完整字节的低位
+			byte_data = CLEAR_BITS_LOW(byte_data, obeg)
+			step -= obeg
+		}
+		if dci == cend && oend > 0 {
+			//清零不完整字节的高位
+			byte_data = CLEAR_BITS_HIGH(byte_data, 8-oend)
+			step -= 8-oend
 		}
 
-		ci := bpos / 8
-		co := bpos % 8
-		byte_data := data[ci]
-		bit_pos := GET_BIT(byte_data, co)
+		//获取结点的当前字节，并与数据的当前字节比较
+		byte_node := this.bit_val[nci]
+		if byte_data != byte_node {
+			return false, len(data)*8
+		}
+
+		bb += step
+	}
+
+	return true, bend
+}
+
+//查找元素
+func (this *Radix)Get(key string) interface{}{
+	data := []byte(key)
+	blen := len(data) * 8
+	cur := this.root[data[0]]
+
+	var iseq bool
+	for bpos := 0; bpos < blen && cur != nil; {
+		iseq, bpos = cur.pathCompare(data, bpos)
+		if iseq == false {
+			return nil
+		}
+		if bpos >= blen {
+			return cur.val
+		}
+
+		byte_data := data[bpos / 8]
+		bit_pos := GET_BIT(byte_data, bpos % 8)
 		if bit_pos == 0 {
 			cur = cur.left
 		} else {
 			cur = cur.right
 		}
 	}
+
+	return nil
 }
 
 //将当前结点的子结点进行合并
@@ -316,14 +331,15 @@ func (this *Radix)Delete(key string) {
 	data := []byte(key)
 	blen := len(data) * 8
 	cur := this.root[data[0]]
+
+	var iseq bool
 	var parent *RaxNode = nil
 	for bpos := 0; bpos < blen && cur != nil; {
-		flag, part_end := cur.pathCompare(data, bpos)
-		if flag == false {
+		iseq, bpos = cur.pathCompare(data, bpos)
+		if iseq == false {
 			return
 		}
 
-		bpos = part_end
 		if bpos >= blen {
 			//将当前结点修改为空结点
 			//若parent是根节点，不能删除
@@ -348,47 +364,16 @@ func (this *Radix)Delete(key string) {
 			return
 		}
 
-		ci := bpos / 8
-		co := bpos % 8
-		byte_data := data[ci]
-		bit_pos := GET_BIT(byte_data, co)
+		byte_data := data[bpos / 8]
+		bit_pos := GET_BIT(byte_data, bpos % 8)
 		if bit_pos == 0 {
-			parent =cur
+			parent = cur
 			cur = cur.left
 		} else {
-			parent =cur
+			parent = cur
 			cur = cur.right
 		}
 	}
-}
-
-//查找元素
-func (this *Radix)Get(key string) interface{}{
-	data := []byte(key)
-	blen := len(data) * 8
-	cur := this.root[data[0]]
-	for bpos := 0; bpos < blen && cur != nil; {
-		flag, part_end := cur.pathCompare(data, bpos)
-		if flag == false {
-			return nil
-		}
-
-		bpos = part_end
-		if bpos >= blen {
-			return cur.val
-		}
-
-		ci := bpos / 8
-		co := bpos % 8
-		byte_data := data[ci]
-		bit_pos := GET_BIT(byte_data, co)
-		if bit_pos == 0 {
-			cur = cur.left
-		} else {
-			cur = cur.right
-		}
-	}
-	return nil
 }
 
 //递归获取数据，用于调试

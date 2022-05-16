@@ -56,19 +56,38 @@ func TestRadixGT(t *testing.T) {
 	t.Log(tree.Get("我和你"))
 }
 
-func TestRadix4(t *testing.T) {
+/*
+func TestRadixBatch(t *testing.T) {
+	var tree Radix
+	for i:=0; i < 10000000; i ++ {
+		val := rand.Int() % 1000000
+		val_str := fmt.Sprintf("A%d", val)
+		tree.Set(val_str, val)
+	}
+}
+
+func TestMapBatch(t *testing.T) {
+	mm := make(map[string]int)
+	for i:=0; i < 10000000; i ++ {
+		val := rand.Int() % 1000000
+		val_str := fmt.Sprintf("A%d", val)
+		mm[val_str] = val
+	}
+}
+*/
+
+func TestRadixMap(t *testing.T) {
 	var tree Radix
 	mm := make(map[string]int, 10000)
-	for i:=0; i < 100; i ++ {
+	for i:=0; i < 10000; i ++ {
 		val := rand.Int() % 1000000
 		val_str := fmt.Sprintf("A%d", val)
 		tree.Set(val_str, val)
 		mm[val_str] = val
 	}
-	for i:=0; i < 100; i ++ {
+	for i:=0; i < 10000; i ++ {
 		val := rand.Int() % 1000000
 		val_str := fmt.Sprintf("A%d", val)
-		//fmt.Println(val_str)
 		ret := tree.Get(val_str)
 		ret1 := 0
 		if ret != nil {
@@ -79,4 +98,62 @@ func TestRadix4(t *testing.T) {
 			t.Log("error:" + val_str)
 		}
 	}
+}
+
+//go test -v -run=none -bench="BenchmarkMap" -benchmem
+func BenchmarkMapSet(b *testing.B) {
+	b.StartTimer()
+	mm := make(map[string]int)
+	for i := 0; i < b.N; i++ {
+		val_str := fmt.Sprintf("A%d", i)
+		mm[val_str] = i
+	}
+	b.StopTimer()
+}
+
+func BenchmarkMapGet(b *testing.B) {
+	mm := make(map[string]int)
+	for i:=0; i < 1000000; i ++ {
+		val := rand.Int() % 1000000
+		val_str := fmt.Sprintf("A%d", val)
+		mm[val_str] = val
+	}
+	b.StopTimer()
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		val := i % 1000000
+		val_str := fmt.Sprintf("A%d", val)
+		_,_ = mm[val_str]
+	}
+	b.StopTimer()
+}
+
+//go test -v -run=none -bench="BenchmarkRadix" -benchmem
+func BenchmarkRadixSet(b *testing.B) {
+	b.StartTimer()
+	var tree Radix
+	for i := 0; i < b.N; i++ {
+		val_str := fmt.Sprintf("A%d", i)
+		tree.Set(val_str, i)
+	}
+	b.StopTimer()
+}
+
+func BenchmarkRadixGet(b *testing.B) {
+	var tree Radix
+	for i:=0; i < 1000000; i ++ {
+		val := rand.Int() % 1000000
+		val_str := fmt.Sprintf("A%d", val)
+		tree.Set(val_str, val)
+	}
+	b.StopTimer()
+
+	b.StartTimer()
+	for i := 0; i < b.N; i++ {
+		val := i % 1000000
+		val_str := fmt.Sprintf("A%d", val)
+		tree.Get(val_str)
+	}
+	b.StopTimer()
 }
