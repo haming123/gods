@@ -58,14 +58,14 @@ func (this *RaxNode)pathSplit(key []byte, key_pos int, val interface{}) (int, *R
 
 		if beg != 0 || end != 8 {
 			//不完整字节的比较，若不等则跳出循环
+			//若相等，则增长bpos，并继续比较下一个字节
 			num := GetPrefixBitLength2(byte_data, byte_path, beg, end)
 			bpos += num
 			if num < end - beg {
 				break
 			}
 		} else if byte_data != byte_path {
-			//完整字节比较，若不想等，获取bit相同的长度，并跳出循环
-			//若相等，则增长相等的bit长度，并继续比较下一个字节
+			//完整字节比较，num为相同的bit的个数，bpos增加num后跳出循环
 			num := GetPrefixBitLength2(byte_data, byte_path, 0, 8)
 			bpos += num
 			break
@@ -268,8 +268,8 @@ func (this *Radix)Get(key string) interface{}{
 			return cur.val
 		}
 
-		byte_data := data[bpos / 8]
-		bit_pos := GET_BIT(byte_data, bpos % 8)
+		byte_data := data[bpos/8]
+		bit_pos := GET_BIT(byte_data, bpos%8)
 		if bit_pos == 0 {
 			cur = cur.left
 		} else {
@@ -364,8 +364,8 @@ func (this *Radix)Delete(key string) {
 			return
 		}
 
-		byte_data := data[bpos / 8]
-		bit_pos := GET_BIT(byte_data, bpos % 8)
+		byte_data := data[bpos/8]
+		bit_pos := GET_BIT(byte_data, bpos%8)
 		if bit_pos == 0 {
 			parent = cur
 			cur = cur.left

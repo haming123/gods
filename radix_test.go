@@ -45,6 +45,13 @@ func TestRadixEQ(t *testing.T) {
 	t.Log(tree.Get("Hello"))
 }
 
+func TestRadixDemo(t *testing.T) {
+	var tree Radix
+	tree.Set("god", 1)
+	tree.Set("goto", 2)
+	t.Log("\n" + tree.GetNodesInfo('g'))
+}
+
 func TestRadixGT(t *testing.T) {
 	var tree Radix
 	tree.Set("我", 1)

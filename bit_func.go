@@ -128,8 +128,7 @@ func GetPrefixBitLength(b1 byte, b2 byte) int {
 }
 
 //两个字节对比，返回前缀的长度
-//返回：0 完全不同
-//返回：8 完全相同
+//从beg位开始对比，对比end-beg的长度
 func GetPrefixBitLength2(b1 byte, b2 byte, beg int, end int) int {
 	pp := 0
 	for i:= beg; i < end; i++ {
